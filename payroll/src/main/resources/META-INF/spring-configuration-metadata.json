@@ -25,7 +25,7 @@
       "type": "java.lang.Double"
     },
     {
-      "name": "multipliers.employee.ssk",
+      "name": "multipliers.employee.ssi",
       "type": "java.lang.Double"
     },
     {
@@ -33,7 +33,7 @@
       "type": "java.lang.Double"
     },
     {
-      "name": "multipliers.employer.ssk",
+      "name": "multipliers.employer.ssi",
       "type": "java.lang.Double"
     },
     {
