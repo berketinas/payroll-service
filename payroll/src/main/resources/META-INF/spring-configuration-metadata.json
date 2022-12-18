@@ -1,0 +1,48 @@
+{
+  "properties": [
+    {
+      "name": "income.ssi-max",
+      "type": "java.lang.Double"
+    },
+    {
+      "name": "income.ssi-min",
+      "type": "java.lang.Double"
+    },
+    {
+      "name": "income.min-net",
+      "type": "java.lang.Double"
+    },
+    {
+      "name": "income.min-gross",
+      "type": "java.lang.Double"
+    },
+    {
+      "name": "multipliers.tax-brackets",
+      "type": "java.util.Map<java.lang.Integer, java.lang.Double>"
+    },
+    {
+      "name": "multipliers.stamp",
+      "type": "java.lang.Double"
+    },
+    {
+      "name": "multipliers.employee.ssk",
+      "type": "java.lang.Double"
+    },
+    {
+      "name": "multipliers.employee.unemployment",
+      "type": "java.lang.Double"
+    },
+    {
+      "name": "multipliers.employer.ssk",
+      "type": "java.lang.Double"
+    },
+    {
+      "name": "multipliers.employer.unemployment",
+      "type": "java.lang.Double"
+    },
+    {
+      "name": "breakpoints.tax-brackets",
+      "type": "java.util.Map<java.lang.Integer, java.lang.Double>"
+    }
+  ]
+}
