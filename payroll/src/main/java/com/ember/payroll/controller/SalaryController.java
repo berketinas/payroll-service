@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 
 @RestController
@@ -38,19 +37,19 @@ public class SalaryController {
 
     // NET SALARY TO GROSS SALARY CONVERSION
     @GetMapping("/tr/net-to-gross")
-    public LinkedHashMap<String, Double> trNetToGross(@RequestBody LinkedHashMap<String, Double> yearlyReport) {
-        return salaryService.trNetToGross_INNER(yearlyReport);
+    public List<ResponseDTO> trNetToGross(@RequestBody PayloadDTO payload) {
+        return salaryService.trNetToGross_INNER(payload);
     }
 
     // NET SALARY TO EMPLOYER COST CONVERSION
-    @GetMapping("/tr/net-to-cost")
-    public LinkedHashMap<String, Double> trNetToCost(@RequestBody LinkedHashMap<String, Double> yearlyReport) {
-        return salaryService.trGrossToCost_INNER(salaryService.trNetToGross_INNER(yearlyReport));
-    }
+//    @GetMapping("/tr/net-to-cost")
+//    public LinkedHashMap<String, Double> trNetToCost(@RequestBody PayloadDTO payload) {
+//        return salaryService.trGrossToCost_INNER(salaryService.trNetToGross_INNER(payload));
+//    }
 
     // GROSS SALARY TO EMPLOYER COST CONVERSION
-    @GetMapping("/tr/gross-to-cost")
-    public LinkedHashMap<String, Double> trGrossToCost(@RequestBody LinkedHashMap<String, Double> yearlyReport) {
-        return salaryService.trGrossToCost_INNER(yearlyReport);
-    }
+//    @GetMapping("/tr/gross-to-cost")
+//    public LinkedHashMap<String, Double> trGrossToCost(@RequestBody LinkedHashMap<String, Double> yearlyReport) {
+//        return salaryService.trGrossToCost_INNER(yearlyReport);
+//    }
 }

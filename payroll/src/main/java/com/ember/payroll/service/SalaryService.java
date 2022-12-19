@@ -118,7 +118,7 @@ public class SalaryService {
         return gross - (ssi_employee + unemployment_employee + income_tax + stamp_tax);
     }
 
-    private Map<String, Double> underSSI_MAX_netToGross(double net, int bracket, double cumulativeBase, double grossAccumulator) {
+    private Map<String, Double> underSSI_MAX_netToGross(double net, int bracket, double cumulativeBase, double grossAccumulator, ResponseDTO month) {
         // CALCULATE GROSS WITH NORMAL FORMULA
         double estimatedGross = net / (1 - (MUL_EMPLOYEE_SSI
                 + MUL_EMPLOYEE_UNEMPLOYMENT
@@ -132,6 +132,7 @@ public class SalaryService {
             grossAccumulator += estimatedGross;
             cumulativeBase += base;
 
+            applyExemption(grossToNet(grossAccumulator, cumulativeBase, getBase(grossAccumulator), bracket, month), month);
             return Map.of("gross", grossAccumulator, "cumulative", cumulativeBase);
         } else {
 
@@ -143,7 +144,7 @@ public class SalaryService {
             double availableNet = availableGross - (availableGross * (MUL_EMPLOYEE_SSI + MUL_EMPLOYEE_UNEMPLOYMENT) + availableBase * MUL_TAX_BRACKETS.get(bracket) + availableGross * MUL_STAMP);
 
             grossAccumulator += availableGross;
-            return underSSI_MAX_netToGross(net - availableNet, bracket + 1, BRKPNTS_TAX_BRACKETS.get(bracket), grossAccumulator);
+            return underSSI_MAX_netToGross(net - availableNet, bracket + 1, BRKPNTS_TAX_BRACKETS.get(bracket), grossAccumulator, month);
         }
     }
 
@@ -152,7 +153,7 @@ public class SalaryService {
     // ONE OR MORE BRACKETS. SINCE THERE IS NO FORMULA POSSIBLE, A BRUTE FORCE BINARY SEARCH
     // IS APPLIED TO FIND THE CORRESPONDING GROSS FOR A NET.
     // ***
-    private Map<String, Double> overSSI_MAX_netToGross(double net, int bracket, double cumulativeBase) {
+    private Map<String, Double> overSSI_MAX_netToGross(double net, int bracket, double cumulativeBase, ResponseDTO month) {
 
         // SSI_EMPLOYEE_SHARE + UNEMPLOYMENT_EMPLOYEE_SHARE
         double maxSU = SSI_MAX * (MUL_EMPLOYEE_SSI + MUL_EMPLOYEE_UNEMPLOYMENT);
@@ -202,10 +203,12 @@ public class SalaryService {
 
         // CONVERGER WAS THE BASE, SO ADD SSI AND UNEMPLOYMENT SHARES ON TOP TO GET GROSS
         double estimatedGross = converger + maxSU;
+
+        applyExemption(grossToNet(estimatedGross, cumulativeBase + converger, converger, bracket, month), month);
         return Map.of("gross", estimatedGross, "cumulative", cumulativeBase + converger);
     }
 
-    private Map<String, Double> netToGross(double net, int bracket, double cumulativeBase) {
+    private Map<String, Double> netToGross(double net, int bracket, double cumulativeBase, ResponseDTO month) {
         // CALCULATE GROSS WITH NORMAL FORMULA
         double estimatedGross = net / (1 - (MUL_EMPLOYEE_SSI
                 + MUL_EMPLOYEE_UNEMPLOYMENT
@@ -223,10 +226,12 @@ public class SalaryService {
 
             if(getBracket(cumulativeBase + base) == bracket) {
                 // EXCEEDS SSI MAX, BUT NO BRACKET CHANGE
+
+                applyExemption(grossToNet(estimatedGross, cumulativeBase + base, base, bracket, month), month);
                 return Map.of("gross", estimatedGross, "cumulative", cumulativeBase + base);
             } else {
                 // EXCEEDS SSI MAX, AND BRACKET CHANGES
-                return overSSI_MAX_netToGross(net, bracket, cumulativeBase);
+                return overSSI_MAX_netToGross(net, bracket, cumulativeBase, month);
             }
         } else {
 
@@ -235,10 +240,12 @@ public class SalaryService {
 
             if(getBracket(cumulativeBase + base) == bracket) {
                 // DOES NOT EXCEED SSI MAX, AND NO BRACKET CHANGE
+
+                applyExemption(grossToNet(estimatedGross, cumulativeBase + base, base, bracket, month), month);
                 return Map.of("gross", estimatedGross, "cumulative", cumulativeBase + base);
             } else {
                 // DOES NOT EXCEED SSI MAX, BUT BRACKET CHANGES
-                return underSSI_MAX_netToGross(net, bracket, cumulativeBase, 0.00d);
+                return underSSI_MAX_netToGross(net, bracket, cumulativeBase, 0.00d, month);
             }
         }
     }
@@ -271,22 +278,30 @@ public class SalaryService {
         return yearlyReport;
     }
 
-    public LinkedHashMap<String, Double> trNetToGross_INNER(LinkedHashMap<String, Double> yearlyReport) {
+    public List<ResponseDTO> trNetToGross_INNER(PayloadDTO payload) {
+        List<Double> year = payload.getYearlyReport();
+        List<ResponseDTO> yearlyReport = new ArrayList<>();
         double cumulativeBase = 0.00d;
 
-        for(String month: yearlyReport.keySet()) {
-            if(yearlyReport.get(month) > MIN_NET) {
+        for(int i = 0; i < 12; i++) {
+            ResponseDTO month = new ResponseDTO();
+
+            if(year.get(i) > MIN_NET) {
+                month.setNet(year.get(i));
+
                 int bracket = getBracket(cumulativeBase);
 
                 // UNDO THE EXEMPTION APPLIED TO MINIMUM WAGE PERSONAL INCOME & STAMP TAX
-                double baseNet = yearlyReport.get(month) - (getPIT(0.00d, MIN_NET, 1, 0.00d, null) + getStamp(MIN_GROSS));
-                Map<String, Double> output = netToGross(baseNet, bracket, cumulativeBase);
+                double baseNet = year.get(i) - month.setMin_wage_exempt_tax(getPIT(0.00d, MIN_NET, 1, 0.00d, null) + getStamp(MIN_GROSS));
+                Map<String, Double> output = netToGross(baseNet, bracket, cumulativeBase, month);
 
-                yearlyReport.put(month, output.get("gross"));
+                month.setGross(output.get("gross"));
                 cumulativeBase = output.get("cumulative");
             } else {
-                yearlyReport.put(month, 0.00d);
+                month.nullifyAll();
             }
+
+            yearlyReport.add(month);
         }
 
         return yearlyReport;

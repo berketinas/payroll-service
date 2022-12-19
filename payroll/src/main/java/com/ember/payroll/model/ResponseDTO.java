@@ -99,8 +99,9 @@ public class ResponseDTO {
         return min_wage_exempt_tax;
     }
 
-    public void setMin_wage_exempt_tax(double min_wage_exempt_tax) {
+    public double setMin_wage_exempt_tax(double min_wage_exempt_tax) {
         this.min_wage_exempt_tax = min_wage_exempt_tax;
+        return min_wage_exempt_tax;
     }
 
     public double getNet() {
