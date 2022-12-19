@@ -24,26 +24,8 @@ public class SalaryController {
         salaryService.testProperties();
     }
 
-    @PostMapping("/tr/planned-format")
-    public void plannedFormatTest(@RequestBody PayloadDTO payloadDTO) {
-        payloadDTO.getYearlyReport().forEach(System.out::println);
-        System.out.println(payloadDTO.getEmployeeType());
-    }
-
-    // GROSS SALARY TO NET SALARY CONVERSION
-    @PostMapping("/tr/gross-to-net")
-    public List<ResponseDTO> trGrossToNet(@RequestBody PayloadDTO payload) {
-        return salaryService.trGrossToNet_INNER(payload);
-    }
-
-    // NET SALARY TO GROSS SALARY CONVERSION
-    @PostMapping("/tr/net-to-gross")
-    public List<ResponseDTO> trNetToGross(@RequestBody PayloadDTO payload) {
-        return salaryService.trNetToGross_INNER(payload);
-    }
-
     // NET SALARY TO EMPLOYER COST CONVERSION
-    @PostMapping("/tr/net-to-cost")
+    @PostMapping("/tr/net")
     public List<ResponseDTO> trNetToCost(@RequestBody PayloadDTO payload) {
         List<ResponseDTO> yearlyReport = salaryService.trNetToGross_INNER(payload);
         payload.setYearlyReport(yearlyReport.stream().flatMapToDouble(element -> DoubleStream.of(element.getGross())).boxed().collect(Collectors.toList()));
@@ -51,7 +33,7 @@ public class SalaryController {
     }
 
     // GROSS SALARY TO EMPLOYER COST CONVERSION
-    @PostMapping("/tr/gross-to-cost")
+    @PostMapping("/tr/gross")
     public List<ResponseDTO> trGrossToCost(@RequestBody PayloadDTO payload) {
         return salaryService.trGrossToCost_INNER(payload);
     }
