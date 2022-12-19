@@ -116,16 +116,18 @@ public class ResponseDTO {
         return ssi_employer;
     }
 
-    public void setSsi_employer(double ssi_employer) {
+    public double setSsi_employer(double ssi_employer) {
         this.ssi_employer = ssi_employer;
+        return ssi_employer;
     }
 
     public double getUnemployment_employer() {
         return unemployment_employer;
     }
 
-    public void setUnemployment_employer(double unemployment_employer) {
+    public double setUnemployment_employer(double unemployment_employer) {
         this.unemployment_employer = unemployment_employer;
+        return unemployment_employer;
     }
 
     public double getSsi_unemployment_payment() {

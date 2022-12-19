@@ -79,6 +79,7 @@ public class SalaryService {
     }
 
     private double getPIT(double cumulativeBase, double base, int bracket, double taxAccumulator, ResponseDTO month) {
+        // POPULATE DTO OBJECT IF PROVIDED
         if(month != null) {
             month.addBracket(bracket);
         }
@@ -97,6 +98,8 @@ public class SalaryService {
     private double applyExemption(double net, ResponseDTO month) {
         double exempt_income_tax = getPIT(0.00d, MIN_NET, 1, 0.00d, null);
         double exempt_stamp_tax = getStamp(MIN_GROSS);
+
+        // POPULATE DTO OBJECT
         month.setMin_wage_exempt_tax(exempt_income_tax + exempt_stamp_tax);
 
         return net + exempt_income_tax + exempt_stamp_tax;
@@ -108,6 +111,7 @@ public class SalaryService {
         double income_tax = getPIT(cumulativeBase, base, bracket, 0.00d, month);
         double stamp_tax = getStamp(gross);
 
+        // POPULATE DTO OBJECT IF PROVIDED
         if(month != null) {
             month.setSsi_employee(ssi_employee);
             month.setUnemployment_employee(unemployment_employee);
@@ -204,6 +208,7 @@ public class SalaryService {
         // CONVERGER WAS THE BASE, SO ADD SSI AND UNEMPLOYMENT SHARES ON TOP TO GET GROSS
         double estimatedGross = converger + maxSU;
 
+        // FAKE CALL TO POPULATE DTO OBJECT
         applyExemption(grossToNet(estimatedGross, cumulativeBase + converger, converger, bracket, month), month);
         return Map.of("gross", estimatedGross, "cumulative", cumulativeBase + converger);
     }
@@ -227,6 +232,7 @@ public class SalaryService {
             if(getBracket(cumulativeBase + base) == bracket) {
                 // EXCEEDS SSI MAX, BUT NO BRACKET CHANGE
 
+                // FAKE CALL TO POPULATE DTO OBJECT
                 applyExemption(grossToNet(estimatedGross, cumulativeBase + base, base, bracket, month), month);
                 return Map.of("gross", estimatedGross, "cumulative", cumulativeBase + base);
             } else {
@@ -241,6 +247,7 @@ public class SalaryService {
             if(getBracket(cumulativeBase + base) == bracket) {
                 // DOES NOT EXCEED SSI MAX, AND NO BRACKET CHANGE
 
+                // FAKE CALL TO POPULATE DTO OBJECT
                 applyExemption(grossToNet(estimatedGross, cumulativeBase + base, base, bracket, month), month);
                 return Map.of("gross", estimatedGross, "cumulative", cumulativeBase + base);
             } else {
@@ -307,15 +314,38 @@ public class SalaryService {
         return yearlyReport;
     }
 
-    public LinkedHashMap<String, Double> trGrossToCost_INNER(LinkedHashMap<String, Double> yearlyReport) {
-        for(String month: yearlyReport.keySet()) {
-            if(yearlyReport.get(month) > MIN_GROSS) {
-                // COST IS GROSS + SSI_EMPLOYER_SHARE + UNEMPLOYMENT_EMPLOYER_SHARE
-                double cost = yearlyReport.get(month) > SSI_MAX ? (SSI_MAX * (MUL_EMPLOYER_SSI + MUL_EMPLOYER_UNEMPLOYMENT)) : (yearlyReport.get(month) * (MUL_EMPLOYER_SSI + MUL_EMPLOYER_UNEMPLOYMENT));
-                yearlyReport.put(month, yearlyReport.get(month) + cost);
+    public List<ResponseDTO> trGrossToCost_INNER(PayloadDTO payload) {
+        List<Double> year = payload.getYearlyReport();
+        List<ResponseDTO> yearlyReport = new ArrayList<>();
+        double cumulativeBase = 0.00d;
+
+        for(int i = 0; i < 12; i++) {
+            ResponseDTO month = new ResponseDTO();
+
+            if(year.get(i) > MIN_GROSS) {
+                month.setGross(year.get(i));
+                double base = getBase(year.get(i));
+                cumulativeBase += base;
+                int bracket = getBracket(cumulativeBase);
+
+                double ssi_employer = year.get(i) > SSI_MAX ? SSI_MAX * MUL_EMPLOYER_SSI : year.get(i) * MUL_EMPLOYER_SSI;
+                double unemployment_employer = year.get(i) > SSI_MAX ? SSI_MAX * MUL_EMPLOYER_UNEMPLOYMENT : year.get(i) * MUL_EMPLOYER_UNEMPLOYMENT;
+
+                //  COST IS GROSS + SSI_EMPLOYER_SHARE + UNEMPLOYMENT_EMPLOYER_SHARE
+                double cost = month.setSsi_employer(ssi_employer) + month.setUnemployment_employer(unemployment_employer);
+
+                // POPULATE RESPONSE DTO OBJECT WITH NECESSARY INFORMATION
+                month.setCost(year.get(i) + cost);
+                month.setNet(applyExemption(grossToNet(year.get(i), cumulativeBase, base, bracket, month), month));
+
+                month.setStamp_payment(month.getStamp_tax() - getStamp(MIN_GROSS));
+                month.setIncome_tax_payment(month.getIncome_tax() - getPIT(0.00d, MIN_NET, 1, 0.00d, null));
+                month.setSsi_unemployment_payment(ssi_employer + unemployment_employer + month.getSsi_employee() + month.getUnemployment_employee());
             } else {
-                yearlyReport.put(month, 0.00d);
+                month.nullifyAll();
             }
+
+            yearlyReport.add(month);
         }
 
         return yearlyReport;

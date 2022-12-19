@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.DoubleStream;
 
 @RestController
 public class SalaryController {
@@ -42,10 +44,12 @@ public class SalaryController {
     }
 
     // NET SALARY TO EMPLOYER COST CONVERSION
-//    @GetMapping("/tr/net-to-cost")
-//    public LinkedHashMap<String, Double> trNetToCost(@RequestBody PayloadDTO payload) {
-//        return salaryService.trGrossToCost_INNER(salaryService.trNetToGross_INNER(payload));
-//    }
+    @GetMapping("/tr/net-to-cost")
+    public List<ResponseDTO> trNetToCost(@RequestBody PayloadDTO payload) {
+        List<ResponseDTO> yearlyReport = salaryService.trNetToGross_INNER(payload);
+        payload.setYearlyReport(yearlyReport.stream().flatMapToDouble(element -> DoubleStream.of(element.getGross())).boxed().collect(Collectors.toList()));
+        return salaryService.trGrossToCost_INNER(payload);
+    }
 
     // GROSS SALARY TO EMPLOYER COST CONVERSION
 //    @GetMapping("/tr/gross-to-cost")
