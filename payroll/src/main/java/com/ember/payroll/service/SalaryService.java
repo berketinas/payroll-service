@@ -1,11 +1,11 @@
 package com.ember.payroll.service;
 
+import com.ember.payroll.model.PayloadDTO;
+import com.ember.payroll.model.ResponseDTO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class SalaryService {
@@ -78,24 +78,44 @@ public class SalaryService {
         return -1;
     }
 
-    private double getPIT(double cumulativeBase, double base, int bracket, double taxAccumulator) {
+    private double getPIT(double cumulativeBase, double base, int bracket, double taxAccumulator, ResponseDTO month) {
+        if(month != null) {
+            month.addBracket(bracket);
+        }
+
         if(bracket > 1 && cumulativeBase - base <= BRKPNTS_TAX_BRACKETS.get(bracket - 1)) {
             double overflow = cumulativeBase - BRKPNTS_TAX_BRACKETS.get(bracket - 1);
             taxAccumulator += overflow * MUL_TAX_BRACKETS.get(bracket);
 
-            return getPIT(BRKPNTS_TAX_BRACKETS.get(bracket - 1), base - overflow, bracket - 1, taxAccumulator);
+            return getPIT(BRKPNTS_TAX_BRACKETS.get(bracket - 1), base - overflow, bracket - 1, taxAccumulator, month);
         } else {
             taxAccumulator += base * MUL_TAX_BRACKETS.get(bracket);
             return taxAccumulator > 0 ? taxAccumulator : 0;
         }
     }
 
-    private double applyExemption(double net) {
-        return net + (getPIT(0.00d, MIN_NET, 1, 0.00d) + getStamp(MIN_GROSS));
+    private double applyExemption(double net, ResponseDTO month) {
+        double exempt_income_tax = getPIT(0.00d, MIN_NET, 1, 0.00d, null);
+        double exempt_stamp_tax = getStamp(MIN_GROSS);
+        month.setMin_wage_exempt_tax(exempt_income_tax + exempt_stamp_tax);
+
+        return net + exempt_income_tax + exempt_stamp_tax;
     }
 
-    private double grossToNet(double gross, double cumulativeBase, double base, int bracket) {
-        return gross - (getSSIEmployee(gross) + getUnemploymentEmployee(gross) + getPIT(cumulativeBase, base, bracket, 0.00d) + getStamp(gross));
+    private double grossToNet(double gross, double cumulativeBase, double base, int bracket, ResponseDTO month) {
+        double ssi_employee = getSSIEmployee(gross);
+        double unemployment_employee = getUnemploymentEmployee(gross);
+        double income_tax = getPIT(cumulativeBase, base, bracket, 0.00d, month);
+        double stamp_tax = getStamp(gross);
+
+        if(month != null) {
+            month.setSsi_employee(ssi_employee);
+            month.setUnemployment_employee(unemployment_employee);
+            month.setIncome_tax(income_tax);
+            month.setStamp_tax(stamp_tax);
+        }
+
+        return gross - (ssi_employee + unemployment_employee + income_tax + stamp_tax);
     }
 
     private Map<String, Double> underSSI_MAX_netToGross(double net, int bracket, double cumulativeBase, double grossAccumulator) {
@@ -154,7 +174,7 @@ public class SalaryService {
         do {
             bracket++;
             converger = BRKPNTS_TAX_BRACKETS.get(bracket);
-            tester = grossToNet(converger + maxSU, BRKPNTS_TAX_BRACKETS.get(bracket), converger, bracket);
+            tester = grossToNet(converger + maxSU, BRKPNTS_TAX_BRACKETS.get(bracket), converger, bracket, null);
         } while(net > tester && bracket < 5);
 
         upperBound = BRKPNTS_TAX_BRACKETS.get(bracket);
@@ -176,7 +196,7 @@ public class SalaryService {
             converger = (upperBound + lowerBound) / 2;
 
             // FIND TESTER FOR NEW VALUE OF CONVERGER
-            tester = grossToNet(converger + maxSU, cumulativeBase + converger, converger, bracket);
+            tester = grossToNet(converger + maxSU, cumulativeBase + converger, converger, bracket, null);
             limit++;
         }
 
@@ -223,21 +243,29 @@ public class SalaryService {
         }
     }
 
-    public LinkedHashMap<String, Double> trGrossToNet_INNER(LinkedHashMap<String, Double> yearlyReport) {
+    public List<ResponseDTO> trGrossToNet_INNER(PayloadDTO payload) {
+        List<Double> year = payload.getYearlyReport();
+        List<ResponseDTO> yearlyReport = new ArrayList<>();
         double cumulativeBase = 0.00d;
 
-        for(String month: yearlyReport.keySet()) {
-            if(yearlyReport.get(month) > MIN_GROSS) {
-                double base = getBase(yearlyReport.get(month));
+        for(int i = 0; i < 12; i++) {
+            ResponseDTO month = new ResponseDTO();
+
+            if(year.get(i) > MIN_GROSS) {
+                month.setGross(year.get(i));
+
+                double base = getBase(year.get(i));
                 cumulativeBase += base;
 
                 int bracket = getBracket(cumulativeBase);
 
                 // CALCULATE BASE NET, AND APPLY MINIMUM WAGE PERSONAL INCOME & STAMP TAX EXEMPTION ON TOP
-                yearlyReport.put(month, applyExemption(grossToNet(yearlyReport.get(month), cumulativeBase, base, bracket)));
+                month.setNet(applyExemption(grossToNet(year.get(i), cumulativeBase, base, bracket, month), month));
             } else {
-                yearlyReport.put(month, 0.00d);
+                month.nullifyAll();
             }
+
+            yearlyReport.add(month);
         }
 
         return yearlyReport;
@@ -251,7 +279,7 @@ public class SalaryService {
                 int bracket = getBracket(cumulativeBase);
 
                 // UNDO THE EXEMPTION APPLIED TO MINIMUM WAGE PERSONAL INCOME & STAMP TAX
-                double baseNet = yearlyReport.get(month) - (getPIT(0.00d, MIN_NET, 1, 0.00d) + getStamp(MIN_GROSS));
+                double baseNet = yearlyReport.get(month) - (getPIT(0.00d, MIN_NET, 1, 0.00d, null) + getStamp(MIN_GROSS));
                 Map<String, Double> output = netToGross(baseNet, bracket, cumulativeBase);
 
                 yearlyReport.put(month, output.get("gross"));

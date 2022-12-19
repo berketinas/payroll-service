@@ -1,12 +1,14 @@
 package com.ember.payroll.controller;
 
-import com.ember.payroll.model.Payload;
+import com.ember.payroll.model.PayloadDTO;
+import com.ember.payroll.model.ResponseDTO;
 import com.ember.payroll.service.SalaryService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 
 @RestController
 public class SalaryController {
@@ -23,15 +25,15 @@ public class SalaryController {
     }
 
     @GetMapping("/tr/planned-format")
-    public void plannedFormatTest(@RequestBody Payload payload) {
-        payload.getYearlyReport().forEach(System.out::println);
-        System.out.println(payload.getEmployeeType());
+    public void plannedFormatTest(@RequestBody PayloadDTO payloadDTO) {
+        payloadDTO.getYearlyReport().forEach(System.out::println);
+        System.out.println(payloadDTO.getEmployeeType());
     }
 
     // GROSS SALARY TO NET SALARY CONVERSION
     @GetMapping("/tr/gross-to-net")
-    public LinkedHashMap<String, Double> trGrossToNet(@RequestBody LinkedHashMap<String, Double> yearlyReport) {
-        return salaryService.trGrossToNet_INNER(yearlyReport);
+    public List<ResponseDTO> trGrossToNet(@RequestBody PayloadDTO payload) {
+        return salaryService.trGrossToNet_INNER(payload);
     }
 
     // NET SALARY TO GROSS SALARY CONVERSION
