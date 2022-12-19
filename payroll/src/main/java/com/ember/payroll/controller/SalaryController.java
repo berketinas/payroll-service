@@ -52,8 +52,8 @@ public class SalaryController {
     }
 
     // GROSS SALARY TO EMPLOYER COST CONVERSION
-//    @GetMapping("/tr/gross-to-cost")
-//    public LinkedHashMap<String, Double> trGrossToCost(@RequestBody LinkedHashMap<String, Double> yearlyReport) {
-//        return salaryService.trGrossToCost_INNER(yearlyReport);
-//    }
+    @GetMapping("/tr/gross-to-cost")
+    public List<ResponseDTO> trGrossToCost(@RequestBody PayloadDTO payload) {
+        return salaryService.trGrossToCost_INNER(payload);
+    }
 }
