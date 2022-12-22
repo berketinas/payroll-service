@@ -1,11 +1,14 @@
 package com.ember.payroll.service;
 
-import com.ember.payroll.model.PayloadDTO;
 import com.ember.payroll.model.ResponseDTO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class SalaryService {
@@ -56,7 +59,15 @@ public class SalaryService {
         return MUL_EMPLOYEE_SSI * (gross > SSI_MAX ? SSI_MAX : gross);
     }
 
+    private double getSSIEmployer(double gross) {
+        return MUL_EMPLOYER_SSI * (gross > SSI_MAX ? SSI_MAX : gross);
+    }
+
     private double getUnemploymentEmployee(double gross) {
+        return MUL_EMPLOYEE_UNEMPLOYMENT * (gross > SSI_MAX ? SSI_MAX : gross);
+    }
+
+    private double getUnemploymentEmployer(double gross) {
         return MUL_EMPLOYEE_UNEMPLOYMENT * (gross > SSI_MAX ? SSI_MAX : gross);
     }
 
@@ -213,7 +224,7 @@ public class SalaryService {
         return Map.of("gross", estimatedGross, "cumulative", cumulativeBase + converger);
     }
 
-    private Map<String, Double> netToGross(double net, int bracket, double cumulativeBase, ResponseDTO month) {
+    private Map<String, Double> netToGross_STANDARD_INNER(double net, int bracket, double cumulativeBase, ResponseDTO month) {
         // CALCULATE GROSS WITH NORMAL FORMULA
         double estimatedGross = net / (1 - (MUL_EMPLOYEE_SSI
                 + MUL_EMPLOYEE_UNEMPLOYMENT
@@ -257,7 +268,7 @@ public class SalaryService {
         }
     }
 
-//    public List<ResponseDTO> trGrossToNet_INNER(PayloadDTO payload) {
+//    public List<ResponseDTO> trGrossToNet_STANDARD(PayloadDTO payload) {
 //        List<Double> year = payload.getYearlyReport();
 //        List<ResponseDTO> yearlyReport = new ArrayList<>();
 //        double cumulativeBase = 0.00d;
@@ -285,13 +296,13 @@ public class SalaryService {
 //        return yearlyReport;
 //    }
 
-    public List<ResponseDTO> trNetToGross_INNER(PayloadDTO payload) {
-        List<Double> year = payload.getYearlyReport();
+    public List<ResponseDTO> trNetToGross_STANDARD(List<Double> year) {
         List<ResponseDTO> yearlyReport = new ArrayList<>();
         double cumulativeBase = 0.00d;
 
         for(int i = 0; i < 12; i++) {
             ResponseDTO month = new ResponseDTO();
+            month.nullifyAll();
 
             if(year.get(i) > MIN_NET) {
                 month.setNet(year.get(i));
@@ -299,12 +310,10 @@ public class SalaryService {
 
                 // UNDO THE EXEMPTION APPLIED TO MINIMUM WAGE PERSONAL INCOME & STAMP TAX
                 double baseNet = year.get(i) - (month.setMin_wage_exempt_tax(getPIT(0.00d, MIN_NET, 1, 0.00d, null) + getStamp(MIN_GROSS)));
-                Map<String, Double> output = netToGross(baseNet, bracket, cumulativeBase, month);
+                Map<String, Double> output = netToGross_STANDARD_INNER(baseNet, bracket, cumulativeBase, month);
 
                 month.setGross(output.get("gross"));
                 cumulativeBase = output.get("cumulative");
-            } else {
-                month.nullifyAll();
             }
 
             yearlyReport.add(month);
@@ -313,13 +322,13 @@ public class SalaryService {
         return yearlyReport;
     }
 
-    public List<ResponseDTO> trGrossToCost_INNER(PayloadDTO payload) {
-        List<Double> year = payload.getYearlyReport();
+    public List<ResponseDTO> trGrossToCost_STANDARD(List<Double> year) {
         List<ResponseDTO> yearlyReport = new ArrayList<>();
         double cumulativeBase = 0.00d;
 
         for(int i = 0; i < 12; i++) {
             ResponseDTO month = new ResponseDTO();
+            month.nullifyAll();
 
             if(year.get(i) > MIN_GROSS) {
                 month.setGross(year.get(i));
@@ -341,13 +350,56 @@ public class SalaryService {
                 month.setStamp_payment(month.getStamp_tax() - getStamp(MIN_GROSS));
                 month.setIncome_tax_payment(month.getIncome_tax() - getPIT(0.00d, MIN_NET, 1, 0.00d, null));
                 month.setSsi_unemployment_payment(ssi_employer + unemployment_employer + month.getSsi_employee() + month.getUnemployment_employee());
-            } else {
-                month.nullifyAll();
             }
 
             yearlyReport.add(month);
         }
 
         return yearlyReport;
+    }
+
+    public List<ResponseDTO> trNetToCost_TECH(List<Double> year) {
+        List<ResponseDTO> yearlyReport = new ArrayList<>();
+
+        double maxSU = SSI_MAX * (MUL_EMPLOYEE_SSI + MUL_EMPLOYEE_UNEMPLOYMENT);
+
+        for(int i = 0; i < 12; i++) {
+            ResponseDTO month = new ResponseDTO();
+            month.nullifyAll();
+
+            if(year.get(i) > MIN_NET) {
+                month.setNet(year.get(i));
+
+                double gross = year.get(i) / (1 - (MUL_EMPLOYEE_SSI + MUL_EMPLOYEE_UNEMPLOYMENT));
+                double ssi_employee = getSSIEmployee(gross);
+                double unemployment_employee = getUnemploymentEmployee(gross);
+
+                double ssi_employer = getSSIEmployer(gross);
+                double unemployment_employer = getUnemploymentEmployer(gross);
+
+                if(gross > SSI_MAX) {
+                    gross = year.get(i) + maxSU;
+                }
+
+                month.setGross(gross);
+                month.setSsi_employee(ssi_employee);
+                month.setUnemployment_employee(unemployment_employee);
+
+                month.setSsi_employer(ssi_employer);
+                month.setUnemployment_employer(unemployment_employer);
+
+                month.setSsi_unemployment_payment(ssi_employee + ssi_employer + unemployment_employee + unemployment_employer);
+
+                month.setCost(gross + ssi_employer + unemployment_employer);
+            }
+
+            yearlyReport.add(month);
+        }
+
+        return yearlyReport;
+    }
+
+    public List<ResponseDTO> trGrossToCost_TECH(List<Double> year) {
+        return trNetToCost_TECH(year.stream().map(month -> month - (getSSIEmployee(month) + getUnemploymentEmployee(month))).collect(Collectors.toList()));
     }
 }
