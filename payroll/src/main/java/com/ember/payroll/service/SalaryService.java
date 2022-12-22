@@ -257,33 +257,33 @@ public class SalaryService {
         }
     }
 
-    public List<ResponseDTO> trGrossToNet_INNER(PayloadDTO payload) {
-        List<Double> year = payload.getYearlyReport();
-        List<ResponseDTO> yearlyReport = new ArrayList<>();
-        double cumulativeBase = 0.00d;
-
-        for(int i = 0; i < 12; i++) {
-            ResponseDTO month = new ResponseDTO();
-
-            if(year.get(i) > MIN_GROSS) {
-                month.setGross(year.get(i));
-
-                double base = getBase(year.get(i));
-                cumulativeBase += base;
-
-                int bracket = getBracket(cumulativeBase);
-
-                // CALCULATE BASE NET, AND APPLY MINIMUM WAGE PERSONAL INCOME & STAMP TAX EXEMPTION ON TOP
-                month.setNet(applyExemption(grossToNet(year.get(i), cumulativeBase, base, bracket, month), month));
-            } else {
-                month.nullifyAll();
-            }
-
-            yearlyReport.add(month);
-        }
-
-        return yearlyReport;
-    }
+//    public List<ResponseDTO> trGrossToNet_INNER(PayloadDTO payload) {
+//        List<Double> year = payload.getYearlyReport();
+//        List<ResponseDTO> yearlyReport = new ArrayList<>();
+//        double cumulativeBase = 0.00d;
+//
+//        for(int i = 0; i < 12; i++) {
+//            ResponseDTO month = new ResponseDTO();
+//
+//            if(year.get(i) > MIN_GROSS) {
+//                month.setGross(year.get(i));
+//
+//                double base = getBase(year.get(i));
+//                cumulativeBase += base;
+//
+//                int bracket = getBracket(cumulativeBase);
+//
+//                // CALCULATE BASE NET, AND APPLY MINIMUM WAGE PERSONAL INCOME & STAMP TAX EXEMPTION ON TOP
+//                month.setNet(applyExemption(grossToNet(year.get(i), cumulativeBase, base, bracket, month), month));
+//            } else {
+//                month.nullifyAll();
+//            }
+//
+//            yearlyReport.add(month);
+//        }
+//
+//        return yearlyReport;
+//    }
 
     public List<ResponseDTO> trNetToGross_INNER(PayloadDTO payload) {
         List<Double> year = payload.getYearlyReport();
@@ -295,11 +295,10 @@ public class SalaryService {
 
             if(year.get(i) > MIN_NET) {
                 month.setNet(year.get(i));
-
                 int bracket = getBracket(cumulativeBase);
 
                 // UNDO THE EXEMPTION APPLIED TO MINIMUM WAGE PERSONAL INCOME & STAMP TAX
-                double baseNet = year.get(i) - month.setMin_wage_exempt_tax(getPIT(0.00d, MIN_NET, 1, 0.00d, null) + getStamp(MIN_GROSS));
+                double baseNet = year.get(i) - (month.setMin_wage_exempt_tax(getPIT(0.00d, MIN_NET, 1, 0.00d, null) + getStamp(MIN_GROSS)));
                 Map<String, Double> output = netToGross(baseNet, bracket, cumulativeBase, month);
 
                 month.setGross(output.get("gross"));
@@ -324,6 +323,7 @@ public class SalaryService {
 
             if(year.get(i) > MIN_GROSS) {
                 month.setGross(year.get(i));
+
                 double base = getBase(year.get(i));
                 cumulativeBase += base;
                 int bracket = getBracket(cumulativeBase);
