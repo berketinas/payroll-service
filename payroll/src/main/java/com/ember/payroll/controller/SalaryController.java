@@ -4,7 +4,10 @@ import com.ember.payroll.model.PayloadDTO;
 import com.ember.payroll.model.ResponseDTO;
 import com.ember.payroll.service.ConversionService;
 import com.ember.payroll.service.SalaryService;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,8 +25,10 @@ public class SalaryController {
 
     // ROUTE TO TEST WHETHER LOADED PROPERTIES ARE CORRECT
     @GetMapping("/")
-    public void testProperties() {
+    public String testProperties() {
         salaryService.testProperties();
+
+        return "ok";
     }
 
     // NET SALARY TO EMPLOYER COST CONVERSION
