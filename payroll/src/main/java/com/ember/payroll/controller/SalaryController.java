@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 import java.util.stream.DoubleStream;
 
 @RestController
-@CrossOrigin
 public class SalaryController {
     private final SalaryService salaryService;
     private final ConversionService conversionService;
