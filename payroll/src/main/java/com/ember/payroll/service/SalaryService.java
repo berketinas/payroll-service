@@ -86,7 +86,7 @@ public class SalaryService {
             }
         }
 
-        return -1;
+        return 5;
     }
 
     private double getPIT(double cumulativeBase, double base, int bracket, double taxAccumulator, ResponseDTO month) {
@@ -94,6 +94,7 @@ public class SalaryService {
         if(month != null) {
             month.addBracket(bracket);
         }
+
 
         if(bracket > 1 && cumulativeBase - base <= BRKPNTS_TAX_BRACKETS.get(bracket - 1)) {
             double overflow = cumulativeBase - BRKPNTS_TAX_BRACKETS.get(bracket - 1);
@@ -267,34 +268,6 @@ public class SalaryService {
             }
         }
     }
-
-//    public List<ResponseDTO> trGrossToNet_STANDARD(PayloadDTO payload) {
-//        List<Double> year = payload.getYearlyReport();
-//        List<ResponseDTO> yearlyReport = new ArrayList<>();
-//        double cumulativeBase = 0.00d;
-//
-//        for(int i = 0; i < 12; i++) {
-//            ResponseDTO month = new ResponseDTO();
-//
-//            if(year.get(i) > MIN_GROSS) {
-//                month.setGross(year.get(i));
-//
-//                double base = getBase(year.get(i));
-//                cumulativeBase += base;
-//
-//                int bracket = getBracket(cumulativeBase);
-//
-//                // CALCULATE BASE NET, AND APPLY MINIMUM WAGE PERSONAL INCOME & STAMP TAX EXEMPTION ON TOP
-//                month.setNet(applyExemption(grossToNet(year.get(i), cumulativeBase, base, bracket, month), month));
-//            } else {
-//                month.nullifyAll();
-//            }
-//
-//            yearlyReport.add(month);
-//        }
-//
-//        return yearlyReport;
-//    }
 
     public List<ResponseDTO> trNetToGross_STANDARD(List<Double> year) {
         List<ResponseDTO> yearlyReport = new ArrayList<>();
