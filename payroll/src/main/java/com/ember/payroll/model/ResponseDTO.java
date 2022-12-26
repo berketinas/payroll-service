@@ -11,8 +11,11 @@ public class ResponseDTO {
     private double income_tax;
     private double stamp_tax;
     private double min_wage_exempt_tax;
+    private double exempt_pit;
+    private double exempt_stamp;
     private double net;
     private double ssi_employer;
+    private double ssi_employer_exempt;
     private double unemployment_employer;
     private double ssi_unemployment_payment;
     private double stamp_payment;
@@ -30,8 +33,11 @@ public class ResponseDTO {
         this.income_tax = 0;
         this.stamp_tax = 0;
         this.min_wage_exempt_tax = 0;
+        this.exempt_pit = 0;
+        this.exempt_stamp = 0;
         this.net = 0;
         this.ssi_employer = 0;
+        this.ssi_employer_exempt = 0;
         this.unemployment_employer = 0;
         this.ssi_unemployment_payment = 0;
         this.stamp_payment = 0;
@@ -160,5 +166,30 @@ public class ResponseDTO {
 
     public void setCost(double cost) {
         this.cost = cost;
+    }
+
+    public double getExempt_pit() {
+        return this.exempt_pit;
+    }
+
+    public void setExempt_pit(double exempt_pit) {
+        this.exempt_pit = exempt_pit;
+    }
+
+    public double getExempt_stamp() {
+        return this.exempt_stamp;
+    }
+
+    public void setExempt_stamp(double exempt_stamp) {
+        this.exempt_stamp = exempt_stamp;
+    }
+
+    public double getSsi_employer_exempt() {
+        return ssi_employer_exempt;
+    }
+
+    public double setSsi_employer_exempt(double ssi_employer_exempt) {
+        this.ssi_employer_exempt = ssi_employer_exempt;
+        return ssi_employer_exempt;
     }
 }

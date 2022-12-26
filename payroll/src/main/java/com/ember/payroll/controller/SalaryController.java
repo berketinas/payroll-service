@@ -36,14 +36,11 @@ public class SalaryController {
     public List<ResponseDTO> trNetToCost(@RequestBody PayloadDTO payload) {
         payload.setYearlyReport(payload.getYearlyReport().stream().map(conversionService::USDtoTRY).collect(Collectors.toList()));
 
-        if(payload.getEmployeeType().equals("standard")) {
-            List<ResponseDTO> yearlyReport = salaryService.trNetToGross_STANDARD(payload.getYearlyReport());
-            List<Double> yearlyGross = yearlyReport.stream().flatMapToDouble(element -> DoubleStream.of(element.getGross())).boxed().collect(Collectors.toList());
+        List<ResponseDTO> yearlyReport = salaryService.trNetToGross_STANDARD(payload.getYearlyReport());
+        List<Double> yearlyGross = yearlyReport.stream().flatMapToDouble(element -> DoubleStream.of(element.getGross())).boxed().collect(Collectors.toList());
+        payload.setYearlyReport(yearlyGross);
 
-            return salaryService.trGrossToCost_STANDARD(yearlyGross);
-        } else {
-            return salaryService.trNetToCost_TECH(payload.getYearlyReport());
-        }
+        return salaryService.trGrossToCost_STANDARD(payload);
     }
 
     // GROSS SALARY TO EMPLOYER COST CONVERSION
@@ -51,10 +48,6 @@ public class SalaryController {
     public List<ResponseDTO> trGrossToCost(@RequestBody PayloadDTO payload) {
         payload.setYearlyReport(payload.getYearlyReport().stream().map(conversionService::USDtoTRY).collect(Collectors.toList()));
 
-        if(payload.getEmployeeType().equals("standard")) {
-            return salaryService.trGrossToCost_STANDARD(payload.getYearlyReport());
-        } else {
-            return salaryService.trGrossToCost_TECH(payload.getYearlyReport());
-        }
+        return salaryService.trGrossToCost_STANDARD(payload);
     }
 }

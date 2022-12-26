@@ -1,5 +1,6 @@
 package com.ember.payroll.service;
 
+import com.ember.payroll.model.PayloadDTO;
 import com.ember.payroll.model.ResponseDTO;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,9 @@ public class SalaryService {
 
     @Value("${multipliers.employer.ssi}")
     private double MUL_EMPLOYER_SSI;
+
+    @Value("${multipliers.employer.ssi.exempt}")
+    private double MUL_EMPLOYER_SSI_EXEMPT;
 
     @Value("${multipliers.employer.unemployment}")
     private double MUL_EMPLOYER_UNEMPLOYMENT;
@@ -113,6 +117,8 @@ public class SalaryService {
 
         // POPULATE DTO OBJECT
         month.setMin_wage_exempt_tax(exempt_income_tax + exempt_stamp_tax);
+        month.setExempt_pit(exempt_income_tax);
+        month.setExempt_stamp(exempt_stamp_tax);
 
         return net + exempt_income_tax + exempt_stamp_tax;
     }
@@ -180,7 +186,7 @@ public class SalaryService {
 
         // THE "INDEX" OF THE SEARCH, REPRESENTS THE BASE VALUE
         // FOR THE NET SALARY WE ARE TRYING TO FIND
-        double converger;
+        double converger = 0;
 
         // VALUE TO COMPARE "NET" AGAINST
         double tester;
@@ -189,12 +195,12 @@ public class SalaryService {
         // MOST OPTIMAL BREAKPOINT IS THE FIRST BREAKPOINT WE ENCOUNTER WHOSE CORRESPONDING
         // NET VALUE IS GREATER THAN THE NET VALUE WE ARE LOOKING FOR
         do {
-            bracket++;
-            converger = BRKPNTS_TAX_BRACKETS.get(bracket);
-            tester = grossToNet(converger + maxSU, BRKPNTS_TAX_BRACKETS.get(bracket), converger, bracket, null);
-        } while(net > tester && bracket < 5);
+            bracket = bracket < 5 ? bracket + 1 : bracket;
+            upperBound = bracket < 5 ? BRKPNTS_TAX_BRACKETS.get(bracket) : BRKPNTS_TAX_BRACKETS.get(4);
+            converger = bracket < 4 ? BRKPNTS_TAX_BRACKETS.get(bracket) : converger + converger / 2;
 
-        upperBound = BRKPNTS_TAX_BRACKETS.get(bracket);
+            tester = grossToNet(converger + maxSU, upperBound, converger, bracket, null);
+        } while(net > tester);
 
         // LIMIT THE SEARCH, AND ALLOW SOME DESIRED OUTPUT-ACTUAL OUTPUT DIFFERENCE TOLERANCE
         int limit = 0;
@@ -295,7 +301,8 @@ public class SalaryService {
         return yearlyReport;
     }
 
-    public List<ResponseDTO> trGrossToCost_STANDARD(List<Double> year) {
+    public List<ResponseDTO> trGrossToCost_STANDARD(PayloadDTO payload) {
+        List<Double> year = payload.getYearlyReport();
         List<ResponseDTO> yearlyReport = new ArrayList<>();
         double cumulativeBase = 0.00d;
 
@@ -310,11 +317,12 @@ public class SalaryService {
                 cumulativeBase += base;
                 int bracket = getBracket(cumulativeBase);
 
-                double ssi_employer = year.get(i) > SSI_MAX ? SSI_MAX * MUL_EMPLOYER_SSI : year.get(i) * MUL_EMPLOYER_SSI;
-                double unemployment_employer = year.get(i) > SSI_MAX ? SSI_MAX * MUL_EMPLOYER_UNEMPLOYMENT : year.get(i) * MUL_EMPLOYER_UNEMPLOYMENT;
+                double ssi_employer = (year.get(i) > SSI_MAX ? SSI_MAX : year.get(i)) * (MUL_EMPLOYER_SSI + MUL_EMPLOYER_SSI_EXEMPT);
+                double unemployment_employer = (year.get(i) > SSI_MAX ? SSI_MAX : year.get(i)) * MUL_EMPLOYER_UNEMPLOYMENT;
+                double ssi_employer_exempt = (year.get(i) > SSI_MAX ? SSI_MAX : year.get(i)) * MUL_EMPLOYER_SSI_EXEMPT;
 
                 //  COST IS GROSS + SSI_EMPLOYER_SHARE + UNEMPLOYMENT_EMPLOYER_SHARE
-                double cost = month.setSsi_employer(ssi_employer) + month.setUnemployment_employer(unemployment_employer);
+                double cost = month.setSsi_employer(ssi_employer) - month.setSsi_employer_exempt(ssi_employer_exempt) + month.setUnemployment_employer(unemployment_employer);
 
                 // POPULATE RESPONSE DTO OBJECT WITH NECESSARY INFORMATION
                 month.setCost(year.get(i) + cost);
@@ -322,10 +330,37 @@ public class SalaryService {
 
                 month.setStamp_payment(month.getStamp_tax() - getStamp(MIN_GROSS));
                 month.setIncome_tax_payment(month.getIncome_tax() - getPIT(0.00d, MIN_NET, 1, 0.00d, null));
-                month.setSsi_unemployment_payment(ssi_employer + unemployment_employer + month.getSsi_employee() + month.getUnemployment_employee());
+                month.setSsi_unemployment_payment(ssi_employer - ssi_employer_exempt + unemployment_employer + month.getSsi_employee() + month.getUnemployment_employee());
             }
 
             yearlyReport.add(month);
+        }
+
+        return payload.getEmployeeType().equals("standard") ? yearlyReport : applyTechExemptions(yearlyReport);
+    }
+
+    public List<ResponseDTO> applyTechExemptions(List<ResponseDTO> yearlyReport) {
+        double gross, cost, exempt_pit, exempt_stamp;
+        List<Integer> brackets = new ArrayList<>();
+
+        for(int i = 0; i < 12; i++) {
+            exempt_pit = yearlyReport.get(i).getIncome_tax();
+            exempt_stamp = yearlyReport.get(i).getStamp_tax();
+            gross = yearlyReport.get(i).getGross() - exempt_pit - exempt_stamp;
+            yearlyReport.get(i).setGross(gross);
+
+            cost = gross + (gross > SSI_MAX ? SSI_MAX : gross) * (MUL_EMPLOYER_SSI + MUL_EMPLOYER_UNEMPLOYMENT);
+            yearlyReport.get(i).setCost(cost);
+
+            yearlyReport.get(i).setIncome_tax(0);
+            yearlyReport.get(i).setStamp_tax(0);
+
+            yearlyReport.get(i).setStamp_payment(0);
+            yearlyReport.get(i).setIncome_tax_payment(0);
+
+            yearlyReport.get(i).setExempt_pit(exempt_pit);
+            yearlyReport.get(i).setExempt_stamp(exempt_stamp);
+            yearlyReport.get(i).setBrackets(brackets);
         }
 
         return yearlyReport;
@@ -333,7 +368,6 @@ public class SalaryService {
 
     public List<ResponseDTO> trNetToCost_TECH(List<Double> year) {
         List<ResponseDTO> yearlyReport = new ArrayList<>();
-
         double maxSU = SSI_MAX * (MUL_EMPLOYEE_SSI + MUL_EMPLOYEE_UNEMPLOYMENT);
 
         for(int i = 0; i < 12; i++) {
@@ -359,6 +393,7 @@ public class SalaryService {
                 month.setUnemployment_employee(unemployment_employee);
 
                 month.setSsi_employer(ssi_employer);
+                month.setSsi_employer_exempt(gross * MUL_EMPLOYER_SSI_EXEMPT);
                 month.setUnemployment_employer(unemployment_employer);
 
                 month.setSsi_unemployment_payment(ssi_employee + ssi_employer + unemployment_employee + unemployment_employer);
